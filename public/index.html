@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iCTSV Ticket Sniper & Notifier | HUST Săn Vé Tự Động</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="nav-brand">
+        <div class="brand-icon">
+          <i class="fas fa-ticket-alt"></i>
+          <span class="pulse-dot"></span>
+        </div>
+        <div class="brand-info">
+          <h1>iCTSV <span>SNIPER</span></h1>
+          <p class="brand-sub">Hệ thống giám sát & săn vé hoạt động Bách Khoa</p>
+        </div>
+      </div>
+
+      <div class="nav-stats">
+        <div class="stat-badge ping-badge" id="pingBadge" title="Độ trễ tới server CTSV Bách Khoa">
+          <i class="fas fa-bolt"></i>
+          <span id="pingValue">-- ms</span>
+        </div>
+        <div class="stat-badge user-badge" id="userBadge">
+          <i class="fas fa-user-graduate"></i>
+          <span id="userNameDisplay">Chưa đăng nhập</span>
+        </div>
+        <button id="toggleSoundBtn" class="icon-btn" title="Bật/Tắt âm thanh cảnh báo">
+          <i class="fas fa-volume-up"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Master Action Banner -->
+    <section class="hero-control">
+      <div class="control-left">
+        <div class="monitor-status" id="monitorStatusCard">
+          <div class="status-indicator" id="statusIndicator"></div>
+          <div>
+            <div class="status-title" id="statusTitle">HỆ THỐNG ĐANG DỪNG</div>
+            <div class="status-desc" id="statusDesc">Bấm nút bên cạnh để bắt đầu quét vé tự động</div>
+          </div>
+        </div>
+      </div>
+      <div class="control-actions">
+        <button id="startStopBtn" class="btn btn-primary btn-glow">
+          <i class="fas fa-play" id="startStopIcon"></i>
+          <span id="startStopText">BẬT GIÁM SÁT</span>
+        </button>
+        <button id="manualRefreshBtn" class="btn btn-secondary">
+          <i class="fas fa-sync-alt" id="refreshIcon"></i>
+          <span>Làm mới</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="main-tabs">
+      <button class="tab-btn active" data-tab="eventsTab">
+        <i class="fas fa-calendar-star"></i>
+        <span>Sự kiện & Đặt vé</span>
+        <span class="tab-badge" id="eventCountBadge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="myTicketsTab">
+        <i class="fas fa-ticket"></i>
+        <span>Vé của tôi</span>
+        <span class="tab-badge ticket-badge" id="myTicketCountBadge">0</span>
+      </button>
+      <button class="tab-btn" data-tab="automationTab">
+        <i class="fas fa-robot"></i>
+        <span>Auto-Book & Bot</span>
+      </button>
+      <button class="tab-btn" data-tab="authTab">
+        <i class="fas fa-key"></i>
+        <span>Tài khoản & Token</span>
+        <span class="auth-dot" id="authDot"></span>
+      </button>
+      <button class="tab-btn" data-tab="logsTab">
+        <i class="fas fa-terminal"></i>
+        <span>Nhật ký thời gian thực</span>
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="tab-content-wrapper">
+      
+      <!-- TAB 1: SỰ KIỆN & ĐẶT VÉ -->
+      <section id="eventsTab" class="tab-pane active">
+        <div class="toolbar">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="eventSearchInput" placeholder="Tìm theo tên sự kiện, nhóm, địa điểm...">
+          </div>
+          <div class="filter-group">
+            <button class="filter-chip active" data-filter="all">Tất cả</button>
+            <button class="filter-chip" data-filter="available">Còn vé</button>
+            <button class="filter-chip" data-filter="my">Đã có vé</button>
+            <button class="filter-chip" data-filter="closed">Đã đóng / Hết</button>
+          </div>
+        </div>
+
+        <div id="eventsGrid" class="events-grid">
+          <!-- Dynamic event cards injected here -->
+          <div class="empty-state">
+            <i class="fas fa-spinner fa-spin empty-icon"></i>
+            <h3>Đang tải danh sách sự kiện từ iCTSV...</h3>
+            <p>Vui lòng kiểm tra cấu hình Token nếu đợi quá lâu.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: VÉ CỦA TÔI -->
+      <section id="myTicketsTab" class="tab-pane">
+        <div class="section-header">
+          <h2><i class="fas fa-id-badge"></i> Vé đã đặt của bạn</h2>
+          <p>Mã vé và QR Code dùng để điểm danh tại sự kiện</p>
+        </div>
+        <div id="myTicketsList" class="my-tickets-grid">
+          <!-- Injected tickets -->
+        </div>
+      </section>
+
+      <!-- TAB 3: AUTO-BOOK & TELEGRAM -->
+      <section id="automationTab" class="tab-pane">
+        <div class="config-grid">
+          <!-- Auto Book Card -->
+          <div class="card glass-card">
+            <div class="card-header">
+              <div class="card-icon"><i class="fas fa-crosshairs"></i></div>
+              <div>
+                <h3>Chế độ Săn Vé Tự Động (Auto-Book Sniper)</h3>
+                <p>Tự động gửi yêu cầu đặt vé ngay mili-giây đầu tiên khi có vé mở</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="switch-row">
+                <div class="switch-info">
+                  <strong>Bật Tự Động Đặt Vé</strong>
+                  <span>Hệ thống sẽ ngay lập tức đăng ký khi phát hiện sự kiện phù hợp</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="cfgAutoBook">
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="form-group mt-3">
+                <label for="cfgKeywords">Từ khoá lọc sự kiện cần săn (Phân cách bằng dấu phẩy):</label>
+                <input type="text" id="cfgKeywords" class="form-control" placeholder="Ví dụ: Rèn luyện, Hội thảo, Việc làm, Samsung (Để trống để săn tất cả)">
+                <small class="form-hint">Nếu để trống: Bot sẽ săn bất kỳ hoạt động nào mở vé.</small>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group col">
+                  <label for="cfgPhone">Số điện thoại đăng ký:</label>
+                  <input type="text" id="cfgPhone" class="form-control" placeholder="0987654321">
+                </div>
+                <div class="form-group col">
+                  <label for="cfgInterval">Tần suất quét vé (Mili-giây):</label>
+                  <select id="cfgInterval" class="form-control">
+                    <option value="1000">1000 ms (1 giây - Siêu nhanh khi canh giờ)</option>
+                    <option value="2000">2000 ms (2 giây - Rất nhanh)</option>
+                    <option value="3000" selected>3000 ms (3 giây - Khuyến nghị cân bằng)</option>
+                    <option value="5000">5000 ms (5 giây - Tiết kiệm)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="cfgNote">Ghi chú kèm theo vé (Không bắt buộc):</label>
+                <input type="text" id="cfgNote" class="form-control" placeholder="Ghi chú đăng ký...">
+              </div>
+            </div>
+          </div>
+
+          <!-- Telegram Bot Card -->
+          <div class="card glass-card">
+            <div class="card-header">
+              <div class="card-icon telegram-icon"><i class="fab fa-telegram-plane"></i></div>
+              <div>
+                <h3>Thông báo Telegram tức thời</h3>
+                <p>Nhận tin nhắn báo vé mới & kết quả đặt vé thẳng về điện thoại</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="switch-row">
+                <div class="switch-info">
+                  <strong>Bật thông báo Telegram</strong>
+                  <span>Gửi tin nhắn khi phát hiện vé mới hoặc đặt vé thành công</span>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="cfgTgEnabled">
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="form-group mt-3">
+                <label for="cfgTgBotToken">Telegram Bot Token:</label>
+                <input type="text" id="cfgTgBotToken" class="form-control" placeholder="123456789:ABCdefGHIjklMNOpqrs...">
+                <small class="form-hint">Tạo bot miễn phí qua <a href="https://t.me/BotFather" target="_blank" class="link">@BotFather</a></small>
+              </div>
+
+              <div class="form-group">
+                <label for="cfgTgChatId">Telegram Chat ID (Cá nhân hoặc Nhóm):</label>
+                <input type="text" id="cfgTgChatId" class="form-control" placeholder="Ví dụ: 123456789 hoặc -100xxxxxxx">
+                <small class="form-hint">Lấy Chat ID qua bot <a href="https://t.me/userinfobot" target="_blank" class="link">@userinfobot</a></small>
+              </div>
+
+              <div class="btn-group-right">
+                <button type="button" id="testTelegramBtn" class="btn btn-secondary">
+                  <i class="fas fa-paper-plane"></i> Gửi thử tin nhắn
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-bar">
+          <button id="saveAutoConfigBtn" class="btn btn-primary btn-large">
+            <i class="fas fa-save"></i> LƯU CẤU HÌNH TỰ ĐỘNG
+          </button>
+        </div>
+      </section>
+
+      <!-- TAB 4: TÀI KHOẢN & TOKEN -->
+      <section id="authTab" class="tab-pane">
+        <div class="auth-layout">
+          <!-- Direct Input Card -->
+          <div class="card glass-card">
+            <div class="card-header">
+              <div class="card-icon"><i class="fas fa-user-shield"></i></div>
+              <div>
+                <h3>Thông tin xác thực iCTSV HUST</h3>
+                <p>Cần thiết để gửi yêu cầu đặt vé hợp lệ tới máy chủ Bách Khoa</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="authUserName">Mã số sinh viên (MSSV):</label>
+                <input type="text" id="authUserName" class="form-control" placeholder="Ví dụ: 20210000">
+              </div>
+
+              <div class="form-group">
+                <label for="authToken">Mã Token BKNexus (Cookie TokenBKNexus):</label>
+                <textarea id="authToken" class="form-control" rows="3" placeholder="Dán TokenBKNexus vào đây..."></textarea>
+                <small class="form-hint">Lấy từ Cookie của trang ctsv.hust.edu.vn (Xem hướng dẫn 1 chạm bên phải).</small>
+              </div>
+
+              <div class="form-group">
+                <label for="authAccessToken">Office 365 ID Token (adal.idtoken - Không bắt buộc):</label>
+                <textarea id="authAccessToken" class="form-control" rows="2" placeholder="Dùng để tự động gia hạn khi TokenBKNexus hết hạn..."></textarea>
+              </div>
+
+              <div class="btn-group-row">
+                <button id="testAuthBtn" class="btn btn-secondary">
+                  <i class="fas fa-check-circle"></i> Kiểm tra kết nối Token
+                </button>
+                <button id="saveAuthBtn" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Lưu thông tin
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 1-Click Sync Helper Guide -->
+          <div class="card glass-card highlight-card">
+            <div class="card-header">
+              <div class="card-icon"><i class="fas fa-magic"></i></div>
+              <div>
+                <h3>TỰ ĐỘNG LẤY TOKEN (KHÔNG CẦN CHẠY CODE)</h3>
+                <p>Bấm nút để mở trình duyệt, đăng nhập là hệ thống tự lấy token 100%!</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 18px; text-align: center; margin-bottom: 20px;">
+                <h4 style="color: var(--accent-emerald); margin-bottom: 8px;"><i class="fas fa-robot"></i> Cách nhanh nhất (Khuyên dùng)</h4>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Bấm nút bên dưới, một cửa sổ Chrome/Edge sẽ mở ra. Bạn chỉ cần đăng nhập tài khoản trường, hệ thống sẽ <b>tự động bắt Token và lưu ngay</b> mà bạn không cần phải copy hay gõ bất kỳ dòng code nào!</p>
+                <button id="autoLoginBtn" class="btn btn-primary btn-glow" style="width: 100%; font-size: 15px;">
+                  <i class="fas fa-external-link-alt"></i> 🚀 MỞ TRÌNH DUYỆT TỰ LẤY TOKEN
+                </button>
+              </div>
+
+              <div class="step-guide">
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Hoặc làm theo cách thủ công:</div>
+                <div class="step-item">
+                  <div class="step-num">1</div>
+                  <div class="step-content">
+                    <strong>Mở trang Đặt vé Bách Khoa:</strong>
+                    <p>Vào trang <a href="https://ctsv.hust.edu.vn/dat-ve" target="_blank" class="link">ctsv.hust.edu.vn/dat-ve</a> và đăng nhập tài khoản của bạn.</p>
+                  </div>
+                </div>
+
+                <div class="step-item">
+                  <div class="step-num">2</div>
+                  <div class="step-content">
+                    <strong>Bấm F12 -> tab Console, dán đoạn mã này rồi ấn Enter:</strong>
+                    <div class="code-box">
+                      <pre id="syncSnippetCode">javascript:(function(){function g(n){let v=document.cookie.match('(^|;) ?'+n+'=([^;]*)(;|$)');return v?v[2]:null;}const t=g('TokenBKNexus')||localStorage.getItem('TokenBKNexus');const u=g('UserName')||localStorage.getItem('UserName');const i=localStorage.getItem('adal.idtoken');const data=JSON.stringify({Token:t,UserName:u,idtoken:i});if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(data).then(()=>{alert('✅ ĐÃ COPY THÔNG TIN XÁC THỰC VÀO CLIPBOARD!\n\n👉 Bây giờ hãy về lại tab http://localhost:3000 và bấm nút [DÁN TỪ CLIPBOARD]!');}).catch(()=>{prompt('Copy đoạn mã này rồi dán vào app:',data);});}else{prompt('Copy đoạn mã này rồi dán vào app:',data);}})();</pre>
+                      <button id="copySnippetBtn" class="btn btn-small btn-secondary">
+                        <i class="fas fa-copy"></i> Copy Mã Script
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="step-item">
+                  <div class="step-num">3</div>
+                  <div class="step-content">
+                    <strong>Về lại tab này và bấm nút bên dưới:</strong>
+                    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                      <button id="pasteClipboardBtn" class="btn btn-primary btn-glow" style="width: 100%;">
+                        <i class="fas fa-paste"></i> 📋 DÁN TỪ CLIPBOARD (1-CLICK)
+                      </button>
+                      <input type="text" id="quickPasteInput" class="form-control" placeholder="Hoặc click vào đây ấn Ctrl+V để dán nhanh...">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explanation card: Why PC fails vs Mobile -->
+        <div class="card glass-card info-banner-card mt-3">
+          <div class="card-header">
+            <div class="card-icon info-icon"><i class="fas fa-question-circle"></i></div>
+            <div>
+              <h3>Giải đáp: Tại sao trên máy tính bị lỗi không đặt được mà điện thoại lại được?</h3>
+            </div>
+          </div>
+          <div class="card-body explanation-text">
+            <p>Qua phân tích trực tiếp mã nguồn Frontend của trang <code>ctsv.hust.edu.vn/#/dat-ve</code>:</p>
+            <ul>
+              <li><b>1. Cơ chế xác thực Office 365 (ADAL/OIDC):</b> Chức năng đặt vé gọi API riêng <code>bknexus/Event/Register</code> và yêu cầu phiên Microsoft Office 365 còn hiệu lực. Trên trình duyệt máy tính, các chính sách bảo mật chặn cookie bên thứ ba (Third-party cookie) hoặc iframe làm mới token của Microsoft thường xuyên gây ra lỗi <b>401 (Phiên đăng nhập không hợp lệ)</b> hoặc popup đăng nhập bị chặn.</li>
+              <li><b>2. Trên điện thoại (App iCTSV):</b> Ứng dụng di động lưu trữ token xác thực trong bộ nhớ an toàn (Secure Storage) và gắn trực tiếp vào header/body mà không phụ thuộc vào cơ chế cookie iframe của trình duyệt web máy tính.</li>
+              <li><b>3. Quá tải giao diện khi mở vé:</b> Trên web máy tính, khi hàng ngàn sinh viên cùng F5, giao diện Element-UI của trang web thường bị đơ, không mở được Modal đăng ký. <b>Ứng dụng này giải quyết triệt để vấn đề đó</b> bằng cách gửi trực tiếp POST request tới API máy chủ trong vòng vài chục mili-giây, bỏ qua hoàn toàn giao diện web!</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: NHẬT KÝ THỜI GIAN THỰC -->
+      <section id="logsTab" class="tab-pane">
+        <div class="logs-container">
+          <div class="logs-header">
+            <div class="logs-title">
+              <i class="fas fa-terminal"></i>
+              <span>SYSTEM EVENT STREAM (LIVE)</span>
+            </div>
+            <div class="logs-tools">
+              <label class="auto-scroll-label">
+                <input type="checkbox" id="autoScrollCheck" checked> Tự cuộn xuống
+              </label>
+              <button id="clearLogsBtn" class="btn btn-small btn-secondary">
+                <i class="fas fa-trash-alt"></i> Xóa log
+              </button>
+            </div>
+          </div>
+          <div id="logsConsole" class="logs-console">
+            <!-- Dynamic log lines -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal for Manual Registration -->
+    <div id="registerModal" class="modal">
+      <div class="modal-content glass-card">
+        <div class="modal-header">
+          <h3><i class="fas fa-ticket-alt"></i> Xác nhận Đặt vé</h3>
+          <button class="modal-close" id="closeRegisterModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <h4 id="modalEventTitle" class="event-title-modal">Tên sự kiện</h4>
+          <div class="modal-event-details" id="modalEventDetails">
+            <!-- Info here -->
+          </div>
+
+          <div class="form-group mt-3">
+            <label for="modalPhone">Số điện thoại liên hệ:</label>
+            <input type="text" id="modalPhone" class="form-control" placeholder="Số điện thoại của bạn...">
+          </div>
+          <div class="form-group">
+            <label for="modalNote">Ghi chú (Không bắt buộc):</label>
+            <input type="text" id="modalNote" class="form-control" placeholder="Ghi chú đăng ký...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelModalBtn" class="btn btn-secondary">Hủy bỏ</button>
+          <button id="confirmRegisterBtn" class="btn btn-primary btn-glow">
+            <i class="fas fa-check"></i> ĐĂNG KÝ VÉ NGAY
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for QR Code Display -->
+    <div id="qrModal" class="modal">
+      <div class="modal-content glass-card qr-modal-content">
+        <div class="modal-header">
+          <h3><i class="fas fa-qrcode"></i> Vé tham gia sự kiện</h3>
+          <button class="modal-close" id="closeQrModal">&times;</button>
+        </div>
+        <div class="modal-body text-center">
+          <h4 id="qrEventTitle">Tên sự kiện</h4>
+          <div class="ticket-badge-pill" id="qrTicketCode">TICKET-CODE</div>
+          <div class="qr-container mt-3">
+            <div id="qrCodeContainer"></div>
+          </div>
+          <div class="qr-info mt-2">
+            <div>Số thứ tự ghế: <strong id="qrSeatNo">--</strong></div>
+            <div>Mã sinh viên: <strong id="qrMssv">--</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast Element -->
+    <div id="toastContainer" class="toast-container"></div>
+  </div>
+
+  <!-- QR Code Generator Library (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

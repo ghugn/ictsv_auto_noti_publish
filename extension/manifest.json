@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "iCTSV Auto Sync Token",
+  "version": "1.0",
+  "description": "Tự động đồng bộ Token iCTSV sang ứng dụng Sniper mà không cần mở Console",
+  "permissions": ["cookies", "storage"],
+  "host_permissions": [
+    "*://ctsv.hust.edu.vn/*",
+    "*://*.hust.edu.vn/*",
+    "http://localhost:3000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://ctsv.hust.edu.vn/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

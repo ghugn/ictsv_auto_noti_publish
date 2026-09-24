@@ -1,0 +1,17 @@
+{
+  "token": "",
+  "userName": "",
+  "accessToken": "",
+  "phone": "",
+  "note": "",
+  "autoBook": false,
+  "targetKeywords": "",
+  "pollInterval": 3000,
+  "monitorActive": false,
+  "telegram": {
+    "enabled": false,
+    "botToken": "",
+    "chatId": ""
+  },
+  "soundAlert": true
+}
