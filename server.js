@@ -206,6 +206,7 @@ async function triggerAutoLogin() {
 
 // Event state cache
 let previousEventsMap = new Map();
+let latestEventsCache = [];
 let isPolling = false;
 let pollTimer = null;
 
@@ -255,6 +256,7 @@ async function checkEventsCycle() {
     }
 
     const events = data.Events || [];
+    latestEventsCache = events;
     broadcastSSE('events', { events, timestamp: Date.now() });
 
     // Compare with previous state
@@ -543,6 +545,9 @@ app.get('/api/stream', (req, res) => {
 
   // Send initial config & state
   res.write(`event: init\ndata: ${JSON.stringify({ config, monitorActive: config.monitorActive })}\n\n`);
+  if (latestEventsCache && latestEventsCache.length > 0) {
+    res.write(`event: events\ndata: ${JSON.stringify({ events: latestEventsCache, timestamp: Date.now() })}\n\n`);
+  }
 
   req.on('close', () => {
     sseClients = sseClients.filter(c => c.id !== clientId);

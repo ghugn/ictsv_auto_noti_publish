@@ -90,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   loadInitialConfig();
   connectSSE();
+  fetchEventsManual(true);
 });
 
 // Setup Navigation Tabs
@@ -544,7 +545,7 @@ window.handleCancelTicket = async function(eventId) {
 };
 
 // Fetch Events Manually
-async function fetchEventsManual() {
+async function fetchEventsManual(silent = false) {
   const icon = document.getElementById('refreshIcon');
   if (icon) icon.classList.add('fa-spin');
   try {
@@ -554,12 +555,24 @@ async function fetchEventsManual() {
       appState.events = result.data.Events || [];
       renderEvents();
       renderMyTickets();
-      showToast('Đã cập nhật danh sách sự kiện!', 'success');
+      if (!silent) showToast('Đã cập nhật danh sách sự kiện!', 'success');
     } else {
-      showToast('Không lấy được sự kiện: ' + (result.data?.RespText || result.error || 'Token không hợp lệ'), 'error');
+      if (!silent) {
+        showToast('Không lấy được sự kiện: ' + (result.data?.RespText || result.error || 'Token không hợp lệ'), 'error');
+      }
+      const container = document.getElementById('eventsList');
+      if (container && (!appState.events || appState.events.length === 0)) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <i class="fas fa-exclamation-circle empty-icon" style="color: #ef4444;"></i>
+            <h3>Chưa tải được sự kiện</h3>
+            <p>${result.data?.RespText || result.error || 'Token chưa cấu hình hoặc đã hết hạn.'}</p>
+          </div>
+        `;
+      }
     }
   } catch (err) {
-    showToast('Lỗi kết nối: ' + err.message, 'error');
+    if (!silent) showToast('Lỗi kết nối: ' + err.message, 'error');
   } finally {
     if (icon) icon.classList.remove('fa-spin');
   }
@@ -587,7 +600,7 @@ function setupEventListeners() {
   });
 
   // Manual Refresh Button
-  document.getElementById('manualRefreshBtn').addEventListener('click', fetchEventsManual);
+  document.getElementById('manualRefreshBtn').addEventListener('click', () => fetchEventsManual(false));
 
   // Sound Toggle
   document.getElementById('toggleSoundBtn').addEventListener('click', () => {
