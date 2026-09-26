@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { launchAutoLogin } = require('./autologin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,17 +15,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Load / Save Config
 function loadConfig() {
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-    }
-  } catch (err) {
-    console.error('Error loading config:', err);
-  }
-  return {
+  const defaultConfig = {
     token: '',
     userName: '',
     accessToken: '',
+    email: '',
+    password: '',
+    renderUrl: 'https://ictsv-sniper.onrender.com',
+    autoRelogin: true,
     phone: '',
     note: '',
     autoBook: false,
@@ -34,6 +32,14 @@ function loadConfig() {
     telegram: { enabled: false, botToken: '', chatId: '' },
     soundAlert: true
   };
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return { ...defaultConfig, ...JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) };
+    }
+  } catch (err) {
+    console.error('Error loading config:', err);
+  }
+  return defaultConfig;
 }
 
 function saveConfig(cfg) {
@@ -144,6 +150,60 @@ async function tryRefreshToken() {
   return false;
 }
 
+// Helper: Auto-sync token to Render
+async function syncTokenToRender(token, userName, accessToken) {
+  if (!config.renderUrl || !config.renderUrl.trim()) return;
+  try {
+    const syncUrl = `${config.renderUrl.trim().replace(/\/$/, '')}/api/auth/save-token`;
+    const res = await fetch(syncUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        Token: token,
+        UserName: userName,
+        idtoken: accessToken || null,
+        phone: config.phone || null
+      })
+    });
+    const d = await res.json();
+    if (d && d.success) {
+      logMessage('success', `Đã tự động đồng bộ Token mới lên Render: ${config.renderUrl}`);
+    }
+  } catch (e) {
+    logMessage('warning', `Không thể đồng bộ sang Render: ${e.message}`);
+  }
+}
+
+let isAutoLoggingIn = false;
+async function triggerAutoLogin() {
+  if (isAutoLoggingIn) return;
+  isAutoLoggingIn = true;
+  logMessage('info', '⚡ TỰ ĐỘNG ĐĂNG NHẬP: Đang chạy tiến trình lấy lại Token Bách Khoa...');
+
+  try {
+    await launchAutoLogin({
+      email: config.email,
+      password: config.password,
+      headless: false
+    }, async (tokenData) => {
+      config.token = tokenData.token;
+      config.userName = tokenData.userName;
+      if (tokenData.accessToken) config.accessToken = tokenData.accessToken;
+      saveConfig(config);
+      logMessage('success', `Đã cập nhật Token tự động vào hệ thống! MSSV: ${config.userName}`);
+      broadcastSSE('config_updated', { config });
+
+      await syncTokenToRender(tokenData.token, tokenData.userName, tokenData.accessToken);
+    }, (level, msg) => {
+      logMessage(level, msg);
+    });
+  } catch (err) {
+    logMessage('error', 'Lỗi trong tiến trình tự đăng nhập: ' + err.message);
+  } finally {
+    isAutoLoggingIn = false;
+  }
+}
+
 // Event state cache
 let previousEventsMap = new Map();
 let isPolling = false;
@@ -176,8 +236,13 @@ async function checkEventsCycle() {
       logMessage('warning', 'Phiên đăng nhập không hợp lệ (401). Đang thử làm mới token...');
       const refreshed = await tryRefreshToken();
       if (!refreshed) {
-        logMessage('error', 'Token đã hết hạn! Vui lòng cập nhật Token mới từ trang web ctsv.hust.edu.vn');
-        broadcastSSE('auth_error', { message: 'Token đã hết hạn' });
+        if (config.autoRelogin) {
+          logMessage('info', '⚡ TỰ ĐỘNG ĐĂNG NHẬP LẠI: Phát hiện Token hết hạn, đang kích hoạt đăng nhập lại...');
+          triggerAutoLogin();
+        } else {
+          logMessage('error', 'Token đã hết hạn! Vui lòng cập nhật Token mới từ trang web ctsv.hust.edu.vn');
+          broadcastSSE('auth_error', { message: 'Token đã hết hạn' });
+        }
       }
       isPolling = false;
       return;
@@ -394,16 +459,22 @@ app.get('/api/events', async (req, res) => {
 });
 
 // Auto-Login Browser Launcher
-const { launchAutoLogin } = require('./autologin');
+
 
 app.post('/api/auth/auto-login', async (req, res) => {
-  const started = await launchAutoLogin((tokenData) => {
+  const started = await launchAutoLogin({
+    email: config.email,
+    password: config.password,
+    headless: false
+  }, async (tokenData) => {
     config.token = tokenData.token;
     config.userName = tokenData.userName;
     if (tokenData.accessToken) config.accessToken = tokenData.accessToken;
     saveConfig(config);
     logMessage('success', `Đã tự động cập nhật Token vào hệ thống! MSSV: ${config.userName}`);
     broadcastSSE('config_updated', { config });
+
+    await syncTokenToRender(tokenData.token, tokenData.userName, tokenData.accessToken);
   }, (level, msg) => {
     logMessage(level, msg);
   });

@@ -5,22 +5,33 @@
     return v ? v[2] : null;
   }
 
+  let lastSyncedToken = null;
+
   function syncToken() {
     const token = getCookie('TokenBKNexus') || localStorage.getItem('TokenBKNexus');
     const user = getCookie('UserName') || localStorage.getItem('UserName');
     const idtoken = localStorage.getItem('adal.idtoken');
 
-    if (token && user) {
-      // Send directly to local app
-      fetch('http://localhost:3000/api/auth/save-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Token: token, UserName: user, idtoken: idtoken || null })
-      }).then(r => r.json()).then(data => {
-        console.log('[iCTSV Auto Sync] Đã đồng bộ token tự động sang App!', data);
-        showBanner(`✅ Đã tự động đồng bộ Token (MSSV: ${user}) sang App iCTSV Noti!`);
-      }).catch(err => {
-        // App might not be running yet
+    if (token && user && token !== lastSyncedToken) {
+      lastSyncedToken = token;
+      
+      const payload = JSON.stringify({ Token: token, UserName: user, idtoken: idtoken || null });
+      const endpoints = [
+        'http://localhost:3000/api/auth/save-token',
+        'https://ictsv-sniper.onrender.com/api/auth/save-token'
+      ];
+
+      endpoints.forEach(url => {
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        }).then(r => r.json()).then(data => {
+          console.log(`[iCTSV Auto Sync] Đã đồng bộ sang ${url}!`, data);
+          showBanner(`✅ Đã tự động đồng bộ Token (MSSV: ${user}) sang App Sniper!`);
+        }).catch(err => {
+          // Endpoint might be offline or sleeping
+        });
       });
     }
   }
@@ -42,7 +53,7 @@
     banner.style.fontWeight = 'bold';
     banner.innerText = msg;
     document.body.appendChild(banner);
-    setTimeout(() => banner.remove(), 5000);
+    setTimeout(() => banner.remove(), 4000);
   }
 
   // Run on load and periodically in case user logs in

@@ -13,5 +13,9 @@
     "botToken": "",
     "chatId": ""
   },
-  "soundAlert": true
+  "soundAlert": true,
+  "email": "",
+  "password": "",
+  "renderUrl": "https://ictsv-sniper.onrender.com",
+  "autoRelogin": true
 }

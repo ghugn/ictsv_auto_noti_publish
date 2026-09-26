@@ -260,6 +260,31 @@
                 <textarea id="authAccessToken" class="form-control" rows="2" placeholder="Dùng để tự động gia hạn khi TokenBKNexus hết hạn..."></textarea>
               </div>
 
+              <div class="form-group">
+                <label for="authEmail"><i class="fas fa-envelope"></i> Email Bách Khoa (@sis.hust.edu.vn):</label>
+                <input type="email" id="authEmail" class="form-control" placeholder="Ví dụ: hoang.nm202516108@sis.hust.edu.vn">
+                <small class="form-hint">Dùng để tự động điền khi đăng nhập lại (nếu phiên hết hạn).</small>
+              </div>
+
+              <div class="form-group">
+                <label for="authPassword"><i class="fas fa-key"></i> Mật khẩu tài khoản Bách Khoa:</label>
+                <input type="password" id="authPassword" class="form-control" placeholder="Nhập mật khẩu để tự động đăng nhập...">
+                <small class="form-hint">Mật khẩu chỉ lưu cục bộ trên máy tính của bạn trong config.json.</small>
+              </div>
+
+              <div class="form-group">
+                <label for="authRenderUrl"><i class="fas fa-cloud-upload-alt"></i> Link Server Render (Tự động đồng bộ Token):</label>
+                <input type="url" id="authRenderUrl" class="form-control" placeholder="https://ictsv-sniper.onrender.com">
+                <small class="form-hint">Mỗi khi lấy Token mới trên máy tính, sẽ tự động bắn sang server Render này.</small>
+              </div>
+
+              <div class="form-group" style="margin-top: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="authAutoRelogin" style="width: 18px; height: 18px; accent-color: var(--accent-emerald);" checked>
+                  <span style="font-weight: 600; color: #fff;">⚡ Tự động đăng nhập lại khi phát hiện Token hết hạn</span>
+                </label>
+              </div>
+
               <div class="btn-group-row">
                 <button id="testAuthBtn" class="btn btn-secondary">
                   <i class="fas fa-check-circle"></i> Kiểm tra kết nối Token
@@ -285,7 +310,7 @@
                 <h4 style="color: var(--accent-emerald); margin-bottom: 8px;"><i class="fas fa-robot"></i> Cách nhanh nhất (Khuyên dùng)</h4>
                 <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Bấm nút bên dưới, một cửa sổ Chrome/Edge sẽ mở ra. Bạn chỉ cần đăng nhập tài khoản trường, hệ thống sẽ <b>tự động bắt Token và lưu ngay</b> mà bạn không cần phải copy hay gõ bất kỳ dòng code nào!</p>
                 <button id="autoLoginBtn" class="btn btn-primary btn-glow" style="width: 100%; font-size: 15px;">
-                  <i class="fas fa-external-link-alt"></i> 🚀 MỞ TRÌNH DUYỆT TỰ LẤY TOKEN
+                  <i class="fas fa-bolt"></i> ⚡ TỰ ĐỘNG ĐĂNG NHẬP 100% (ZERO-CLICK)
                 </button>
               </div>
 

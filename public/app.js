@@ -158,6 +158,10 @@ function applyConfigToUI(cfg) {
   document.getElementById('authUserName').value = cfg.userName || '';
   document.getElementById('authToken').value = cfg.token || '';
   document.getElementById('authAccessToken').value = cfg.accessToken || '';
+  if (document.getElementById('authEmail')) document.getElementById('authEmail').value = cfg.email || '';
+  if (document.getElementById('authPassword')) document.getElementById('authPassword').value = cfg.password || '';
+  if (document.getElementById('authRenderUrl')) document.getElementById('authRenderUrl').value = cfg.renderUrl || '';
+  if (document.getElementById('authAutoRelogin')) document.getElementById('authAutoRelogin').checked = cfg.autoRelogin !== false;
 }
 
 function updateMonitorUI(isActive) {
@@ -672,6 +676,10 @@ function setupEventListeners() {
     let userName = document.getElementById('authUserName').value.trim().replace(/['"]/g, '');
     let token = document.getElementById('authToken').value.trim().replace(/['"]/g, '');
     let accessToken = document.getElementById('authAccessToken').value.trim().replace(/['"]/g, '');
+    let email = document.getElementById('authEmail') ? document.getElementById('authEmail').value.trim() : '';
+    let password = document.getElementById('authPassword') ? document.getElementById('authPassword').value : '';
+    let renderUrl = document.getElementById('authRenderUrl') ? document.getElementById('authRenderUrl').value.trim() : '';
+    let autoRelogin = document.getElementById('authAutoRelogin') ? document.getElementById('authAutoRelogin').checked : true;
 
     document.getElementById('authUserName').value = userName;
     document.getElementById('authToken').value = token;
@@ -681,7 +689,7 @@ function setupEventListeners() {
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userName, token, accessToken })
+        body: JSON.stringify({ userName, token, accessToken, email, password, renderUrl, autoRelogin })
       });
       const data = await res.json();
       if (data.success) {
@@ -704,12 +712,12 @@ function setupEventListeners() {
   document.getElementById('autoLoginBtn').addEventListener('click', async () => {
     const btn = document.getElementById('autoLoginBtn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang mở trình duyệt...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tự động đăng nhập...';
     try {
       const res = await fetch('/api/auth/auto-login', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        showToast('Đã mở cửa sổ trình duyệt! Hãy đăng nhập tài khoản trường trên đó.', 'info', 7000);
+        showToast('Đang chạy tự động đăng nhập! Hệ thống sẽ tự nhận diện và bắt Token.', 'info', 7000);
       } else {
         showToast('Không mở được trình duyệt: ' + data.message, 'error');
       }
@@ -717,7 +725,7 @@ function setupEventListeners() {
       showToast('Lỗi: ' + e.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-external-link-alt"></i> 🚀 MỞ TRÌNH DUYỆT TỰ LẤY TOKEN';
+      btn.innerHTML = '<i class="fas fa-bolt"></i> ⚡ TỰ ĐỘNG ĐĂNG NHẬP 100% (ZERO-CLICK)';
     }
   });
 
