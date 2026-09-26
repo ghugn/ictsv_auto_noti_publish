@@ -175,16 +175,23 @@ async function syncTokenToRender(token, userName, accessToken) {
 }
 
 let isAutoLoggingIn = false;
+let lastAutoLoginAttempt = 0;
+const AUTO_LOGIN_COOLDOWN = 60 * 1000; // 60 giây chờ nếu thất bại
+
 async function triggerAutoLogin() {
-  if (isAutoLoggingIn) return;
+  const now = Date.now();
+  if (isAutoLoggingIn || (now - lastAutoLoginAttempt < AUTO_LOGIN_COOLDOWN)) return;
   isAutoLoggingIn = true;
+  lastAutoLoginAttempt = now;
   logMessage('info', '⚡ TỰ ĐỘNG ĐĂNG NHẬP: Đang chạy tiến trình lấy lại Token Bách Khoa...');
 
+  const isHeadless = process.env.RENDER === 'true' || (process.platform !== 'win32' && !process.env.DISPLAY);
+
   try {
-    await launchAutoLogin({
+    const started = await launchAutoLogin({
       email: config.email,
       password: config.password,
-      headless: false
+      headless: isHeadless
     }, async (tokenData) => {
       config.token = tokenData.token;
       config.userName = tokenData.userName;
@@ -197,6 +204,10 @@ async function triggerAutoLogin() {
     }, (level, msg) => {
       logMessage(level, msg);
     });
+
+    if (!started) {
+      broadcastSSE('auth_error', { message: 'Token đã hết hạn và không thể tự động đăng nhập' });
+    }
   } catch (err) {
     logMessage('error', 'Lỗi trong tiến trình tự đăng nhập: ' + err.message);
   } finally {
@@ -238,8 +249,10 @@ async function checkEventsCycle() {
       const refreshed = await tryRefreshToken();
       if (!refreshed) {
         if (config.autoRelogin) {
-          logMessage('info', '⚡ TỰ ĐỘNG ĐĂNG NHẬP LẠI: Phát hiện Token hết hạn, đang kích hoạt đăng nhập lại...');
-          triggerAutoLogin();
+          if (Date.now() - lastAutoLoginAttempt >= AUTO_LOGIN_COOLDOWN) {
+            logMessage('info', '⚡ TỰ ĐỘNG ĐĂNG NHẬP LẠI: Phát hiện Token hết hạn, đang kích hoạt đăng nhập lại...');
+            triggerAutoLogin();
+          }
         } else {
           logMessage('error', 'Token đã hết hạn! Vui lòng cập nhật Token mới từ trang web ctsv.hust.edu.vn');
           broadcastSSE('auth_error', { message: 'Token đã hết hạn' });
@@ -461,13 +474,12 @@ app.get('/api/events', async (req, res) => {
 });
 
 // Auto-Login Browser Launcher
-
-
 app.post('/api/auth/auto-login', async (req, res) => {
+  const isHeadless = process.env.RENDER === 'true' || (process.platform !== 'win32' && !process.env.DISPLAY);
   const started = await launchAutoLogin({
     email: config.email,
     password: config.password,
-    headless: false
+    headless: isHeadless
   }, async (tokenData) => {
     config.token = tokenData.token;
     config.userName = tokenData.userName;
@@ -481,7 +493,7 @@ app.post('/api/auth/auto-login', async (req, res) => {
     logMessage(level, msg);
   });
 
-  res.json({ success: started, message: started ? 'Đang mở trình duyệt...' : 'Không thể mở trình duyệt' });
+  res.json({ success: started, message: started ? 'Đang chạy tiến trình tự động đăng nhập...' : 'Không thể khởi chạy trình duyệt' });
 });
 
 // Manual 1-Click Register

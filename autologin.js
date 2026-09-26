@@ -3,14 +3,44 @@ const fs = require('fs');
 const path = require('path');
 
 function getBrowserPath() {
+  // Check environment variables first
+  if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  if (process.env.CHROME_BIN && fs.existsSync(process.env.CHROME_BIN)) {
+    return process.env.CHROME_BIN;
+  }
+  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
+    return process.env.CHROME_PATH;
+  }
+
   const candidates = [
+    // Windows
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
     (process.env.LOCALAPPDATA || '') + '\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
+    (process.env.LOCALAPPDATA || '') + '\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+    'C:\\Program Files (x86)\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+
+    // Linux / Cloud / Docker / Snap
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/brave-browser',
+    '/snap/bin/chromium',
+    '/snap/bin/google-chrome',
+
+    // macOS
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
   ];
-  return candidates.find(p => fs.existsSync(p));
+
+  return candidates.find(p => p && fs.existsSync(p));
 }
 
 let activeBrowserSession = null;
@@ -21,9 +51,25 @@ async function launchAutoLogin(credentials = {}, onTokenFound, onLog) {
     return false;
   }
 
+  const isCloudOrHeadless = process.env.RENDER === 'true' || (process.platform !== 'win32' && !process.env.DISPLAY);
+
+  // If on cloud/server without GUI and no credentials provided
+  if (isCloudOrHeadless && (!credentials.email || !credentials.password)) {
+    if (onLog) {
+      onLog('warning', '⚠️ [Cloud Render] Server đang chạy trên đám mây không có màn hình hiển thị. Để tự động đăng nhập, vui lòng nhập Email & Mật khẩu trong tab Tài khoản. Hoặc mở App/Extension trên máy tính để tự đồng bộ Token sang Cloud.');
+    }
+    return false;
+  }
+
   const executablePath = getBrowserPath();
   if (!executablePath) {
-    if (onLog) onLog('error', 'Không tìm thấy trình duyệt Chrome hoặc Edge trên máy tính!');
+    if (isCloudOrHeadless) {
+      if (onLog) {
+        onLog('error', '⚠️ [Cloud Render] Không tìm thấy Chrome/Chromium trên môi trường Render. Vui lòng cập nhật Token từ máy tính (dùng Extension, Bookmarklet hoặc App trên PC có điền link Render để tự động đẩy Token sang)!');
+      }
+    } else {
+      if (onLog) onLog('error', 'Không tìm thấy trình duyệt Chrome hoặc Edge trên máy tính! Vui lòng kiểm tra lại trình duyệt.');
+    }
     return false;
   }
 
@@ -37,16 +83,23 @@ async function launchAutoLogin(credentials = {}, onTokenFound, onLog) {
   if (onLog) onLog('info', '🚀 Đang khởi động trình duyệt đăng nhập Bách Khoa...');
 
   try {
+    const launchArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-blink-features=AutomationControlled'
+    ];
+    if (!credentials.headless) {
+      launchArgs.push('--start-maximized');
+    }
+
     const browser = await puppeteer.launch({
       executablePath,
       userDataDir: profileDir,
       headless: isHeadless,
       defaultViewport: null,
-      args: [
-        '--start-maximized',
-        '--disable-blink-features=AutomationControlled',
-        '--no-sandbox'
-      ]
+      args: launchArgs
     });
 
     activeBrowserSession = browser;
